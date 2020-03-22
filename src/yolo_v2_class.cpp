@@ -27,18 +27,18 @@ extern "C" {
 //static Detector* detector = NULL;
 static std::unique_ptr<Detector> detector;
 
-int init(const char *configurationFilename, const char *weightsFilename, int gpu)
+int init(char *configurationFilename, char *weightsFilename, int gpu)
 {
     detector.reset(new Detector(configurationFilename, weightsFilename, gpu));
     return 1;
 }
 
-int detect_image(const char *filename, bbox_t_container &container)
+int detect_image(char *filename, bbox_t_container &container)
 {
-    std::vector<bbox_t> detection = detector->detect(filename);
-    for (size_t i = 0; i < detection.size() && i < C_SHARP_MAX_OBJECTS; ++i)
-        container.candidates[i] = detection[i];
-    return detection.size();
+    vec_bbox detection = detector->detect(filename);
+    for (size_t i = 0; i < detection.num && i < C_SHARP_MAX_OBJECTS; ++i)
+        container.candidates[i] = detection.bbox[i];
+    return detection.num;
 }
 
 int detect_mat(const uint8_t* data, const size_t data_length, bbox_t_container &container) {
@@ -46,7 +46,7 @@ int detect_mat(const uint8_t* data, const size_t data_length, bbox_t_container &
     std::vector<char> vdata(data, data + data_length);
     cv::Mat image = imdecode(cv::Mat(vdata), 1);
 
-    std::vector<bbox_t> detection = detector->detect(image);
+    vec_bbox detection = detector->detect(image);
     for (size_t i = 0; i < detection.size() && i < C_SHARP_MAX_OBJECTS; ++i)
         container.candidates[i] = detection[i];
     return detection.size();
@@ -127,7 +127,7 @@ struct detector_gpu_t {
     unsigned int *track_id;
 };
 
-LIB_API Detector::Detector(std::string cfg_filename, std::string weight_filename, int gpu_id) : cur_gpu_id(gpu_id)
+LIB_API Detector::Detector(char * cfg_filename, char * weight_filename, int gpu_id) : cur_gpu_id(gpu_id)
 {
     wait_stream = 0;
 #ifdef GPU
@@ -150,12 +150,12 @@ LIB_API Detector::Detector(std::string cfg_filename, std::string weight_filename
     _cfg_filename = cfg_filename;
     _weight_filename = weight_filename;
 
-    char *cfgfile = const_cast<char *>(_cfg_filename.c_str());
-    char *weightfile = const_cast<char *>(_weight_filename.c_str());
+    //char *cfgfile = const_cast<char *>(_cfg_filename.c_str());
+    //char *weightfile = const_cast<char *>(_weight_filename.c_str());
 
-    net = parse_network_cfg_custom(cfgfile, 1, 1);
-    if (weightfile) {
-        load_weights(&net, weightfile);
+    net = parse_network_cfg_custom(cfg_filename, 1, 1);
+    if (weight_filename) {
+        load_weights(&net, weight_filename);
     }
     set_batch_network(&net, 1);
     net.gpu_index = cur_gpu_id;
@@ -215,7 +215,7 @@ LIB_API int Detector::get_net_color_depth() const {
 }
 
 
-LIB_API std::vector<bbox_t> Detector::detect(std::string image_filename, float thresh, bool use_mean)
+LIB_API vec_bbox Detector::detect(char * image_filename, float thresh, bool use_mean)
 {
     std::shared_ptr<image_t> image_ptr(new image_t, [](image_t *img) { if (img->data) free(img->data); delete img; });
     *image_ptr = load_image(image_filename);
@@ -244,10 +244,10 @@ static image load_image_stb(char *filename, int channels)
     return im;
 }
 
-LIB_API image_t Detector::load_image(std::string image_filename)
+LIB_API image_t Detector::load_image(char * image_filename)
 {
-    char *input = const_cast<char *>(image_filename.c_str());
-    image im = load_image_stb(input, 3);
+    //char *input = const_cast<char *>(image_filename.c_str());
+    image im = load_image_stb(image_filename, 3);
 
     image_t img;
     img.c = im.c;
@@ -266,7 +266,7 @@ LIB_API void Detector::free_image(image_t m)
     }
 }
 
-LIB_API std::vector<bbox_t> Detector::detect(image_t img, float thresh, bool use_mean)
+LIB_API vec_bbox Detector::detect(image_t img, float thresh, bool use_mean)
 {
     detector_gpu_t &detector_gpu = *static_cast<detector_gpu_t *>(detector_gpu_ptr.get());
     network &net = detector_gpu.net;
@@ -316,8 +316,8 @@ LIB_API std::vector<bbox_t> Detector::detect(image_t img, float thresh, bool use
     detection *dets = get_network_boxes(&net, im.w, im.h, thresh, hier_thresh, 0, 1, &nboxes, letterbox);
     if (nms) do_nms_sort(dets, nboxes, l.classes, nms);
 
-    std::vector<bbox_t> bbox_vec;
-
+    vec_bbox result;
+    unsigned int num = 0;
     for (int i = 0; i < nboxes; ++i) {
         box b = dets[i].bbox;
         int const obj_id = max_index(dets[i].prob, l.classes);
@@ -338,9 +338,12 @@ LIB_API std::vector<bbox_t> Detector::detect(image_t img, float thresh, bool use
             bbox.y_3d = NAN;
             bbox.z_3d = NAN;
 
-            bbox_vec.push_back(bbox);
+            result.bbox[num] = bbox;
+            num++;
         }
     }
+
+    result.num = num;
 
     free_detections(dets, nboxes);
     if(sized.data)
@@ -351,7 +354,7 @@ LIB_API std::vector<bbox_t> Detector::detect(image_t img, float thresh, bool use
         cudaSetDevice(old_gpu_index);
 #endif
 
-    return bbox_vec;
+    return result;
 }
 
 LIB_API std::vector<bbox_t> Detector::tracking_id(std::vector<bbox_t> cur_bbox_vec, bool const change_history,
