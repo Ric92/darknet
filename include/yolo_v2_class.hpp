@@ -73,12 +73,11 @@ extern "C" LIB_API void send_json_custom(char const* send_buf, int port, int tim
 
 class Detector {
     std::shared_ptr<void> detector_gpu_ptr;
-    std::deque<std::vector<bbox_t>> prev_bbox_vec_deque;
+    /*std::deque<std::vector<bbox_t>> prev_bbox_vec_deque;*/
 	char * _cfg_filename;
 	char *_weight_filename;
 public:
-    const int cur_gpu_id;
-    float nms = .4;
+    const int cur_gpu_id;    float nms = .4;
     bool wait_stream;
 
     LIB_API Detector(char * cfg_filename, char * weight_filename, int gpu_id = 0);
@@ -92,8 +91,8 @@ public:
     LIB_API int get_net_height() const;
     LIB_API int get_net_color_depth() const;
 
-    LIB_API std::vector<bbox_t> tracking_id(std::vector<bbox_t> cur_bbox_vec, bool const change_history = true,
-                                                int const frames_story = 5, int const max_dist = 40);
+    /*LIB_API std::vector<bbox_t> tracking_id(std::vector<bbox_t> cur_bbox_vec, bool const change_history = true,
+                                                int const frames_story = 5, int const max_dist = 40);*/
 
     LIB_API void *get_cuda_context();
 
@@ -193,49 +192,49 @@ private:
 
 public:
 
-    bool send_json_http(std::vector<bbox_t> cur_bbox_vec, std::vector<std::string> obj_names, int frame_id,
-        std::string filename = std::string(), int timeout = 400000, int port = 8070)
-    {
-        std::string send_str;
+    //bool send_json_http(std::vector<bbox_t> cur_bbox_vec, std::vector<std::string> obj_names, int frame_id,
+    //    std::string filename = std::string(), int timeout = 400000, int port = 8070)
+    //{
+    //    std::string send_str;
 
-        char *tmp_buf = (char *)calloc(1024, sizeof(char));
-        if (!filename.empty()) {
-            sprintf(tmp_buf, "{\n \"frame_id\":%d, \n \"filename\":\"%s\", \n \"objects\": [ \n", frame_id, filename.c_str());
-        }
-        else {
-            sprintf(tmp_buf, "{\n \"frame_id\":%d, \n \"objects\": [ \n", frame_id);
-        }
-        send_str = tmp_buf;
-        free(tmp_buf);
+    //    char *tmp_buf = (char *)calloc(1024, sizeof(char));
+    //    if (!filename.empty()) {
+    //        sprintf(tmp_buf, "{\n \"frame_id\":%d, \n \"filename\":\"%s\", \n \"objects\": [ \n", frame_id, filename.c_str());
+    //    }
+    //    else {
+    //        sprintf(tmp_buf, "{\n \"frame_id\":%d, \n \"objects\": [ \n", frame_id);
+    //    }
+    //    send_str = tmp_buf;
+    //    free(tmp_buf);
 
-        for (auto & i : cur_bbox_vec) {
-            char *buf = (char *)calloc(2048, sizeof(char));
+    //    for (auto & i : cur_bbox_vec) {
+    //        char *buf = (char *)calloc(2048, sizeof(char));
 
-            sprintf(buf, "  {\"class_id\":%d, \"name\":\"%s\", \"absolute_coordinates\":{\"center_x\":%d, \"center_y\":%d, \"width\":%d, \"height\":%d}, \"confidence\":%f",
-                i.obj_id, obj_names[i.obj_id].c_str(), i.x, i.y, i.w, i.h, i.prob);
+    //        sprintf(buf, "  {\"class_id\":%d, \"name\":\"%s\", \"absolute_coordinates\":{\"center_x\":%d, \"center_y\":%d, \"width\":%d, \"height\":%d}, \"confidence\":%f",
+    //            i.obj_id, obj_names[i.obj_id].c_str(), i.x, i.y, i.w, i.h, i.prob);
 
-            //sprintf(buf, "  {\"class_id\":%d, \"name\":\"%s\", \"relative_coordinates\":{\"center_x\":%f, \"center_y\":%f, \"width\":%f, \"height\":%f}, \"confidence\":%f",
-            //    i.obj_id, obj_names[i.obj_id], i.x, i.y, i.w, i.h, i.prob);
+    //        //sprintf(buf, "  {\"class_id\":%d, \"name\":\"%s\", \"relative_coordinates\":{\"center_x\":%f, \"center_y\":%f, \"width\":%f, \"height\":%f}, \"confidence\":%f",
+    //        //    i.obj_id, obj_names[i.obj_id], i.x, i.y, i.w, i.h, i.prob);
 
-            send_str += buf;
+    //        send_str += buf;
 
-            if (!std::isnan(i.z_3d)) {
-                sprintf(buf, "\n    , \"coordinates_in_meters\":{\"x_3d\":%.2f, \"y_3d\":%.2f, \"z_3d\":%.2f}",
-                    i.x_3d, i.y_3d, i.z_3d);
-                send_str += buf;
-            }
+    //        if (!std::isnan(i.z_3d)) {
+    //            sprintf(buf, "\n    , \"coordinates_in_meters\":{\"x_3d\":%.2f, \"y_3d\":%.2f, \"z_3d\":%.2f}",
+    //                i.x_3d, i.y_3d, i.z_3d);
+    //            send_str += buf;
+    //        }
 
-            send_str += "}\n";
+    //        send_str += "}\n";
 
-            free(buf);
-        }
+    //        free(buf);
+    //    }
 
-        //send_str +=  "\n ] \n}, \n";
-        send_str += "\n ] \n}";
+    //    //send_str +=  "\n ] \n}, \n";
+    //    send_str += "\n ] \n}";
 
-        send_json_custom(send_str.c_str(), port, timeout);
-        return true;
-    }
+    //    send_json_custom(send_str.c_str(), port, timeout);
+    //    return true;
+    //}
 };
 // --------------------------------------------------------------------------------
 
